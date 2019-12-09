@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <cstdio>
+#include "Camera.h"
 
 // Very, VERY simple OBJ loader.
 // Here is a short list of features a real function would provide : 
@@ -42,6 +43,15 @@ std::vector<glm::vec3> normals;
 std::vector<int> indO;
 std::vector<std::string> mtls;
 std::vector<std::string> objName;
+
+bool keys[1024];
+Camera camera(glm::vec3(0.0f, 0.0f, 00.0f));
+
+GLfloat lastX = 400, lastY = 300;
+bool firstMouse = true;
+
+GLfloat deltaTime = 0.0f;
+GLfloat lastFrame = 0.0f;
 
 std::unordered_map<std::string, color> colors;
 
@@ -124,7 +134,7 @@ bool loadOBJ(const char * path) {
 			normalIndices.push_back(normalIndex[0]);
 			normalIndices.push_back(normalIndex[1]);
 			normalIndices.push_back(normalIndex[2]);
-			i++;
+			i+=3;
 		}
 		else if (strcmp(lineHeader, "usemtl") == 0) {
 			indO.push_back(i);
@@ -229,53 +239,85 @@ bool loadMTL(const char * path) {
 	return true;
 }
 
+void Do_Movement()
+{
+	// Camera controls
+	if (keys['w'])
+		camera.ProcessKeyboard(FORWARD, deltaTime);
+	if (keys['s'])
+		camera.ProcessKeyboard(BACKWARD, deltaTime);
+	if (keys['a'])
+		camera.ProcessKeyboard(LEFT, deltaTime);
+	if (keys['d'])
+		camera.ProcessKeyboard(RIGHT, deltaTime);
+}
+
+
+
+void setlight() {
+	//here you set the lights and parameters, example with one light
+
+	//here you set the lights and parameters, example with one light
+	float LightAmbient[] = { 0.1f, 0.1f, 0.05f, 1.0f };
+	float LightEmission[] = { 1.0f, 1.0f, 0.8f, 1.0f };
+	float LightDiffuse[] = { 1.0f, 1.0f, 0.8f, 1.0f };
+	float LightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	float LightDirection[] = { 0.0f, 0.0f, 5.0f };
+	glLightfv(GL_LIGHT0, GL_AMBIENT, LightAmbient);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, LightDiffuse);
+	glLightfv(GL_LIGHT0, GL_SPECULAR, LightSpecular);
+	glLightfv(GL_LIGHT0, GL_POSITION, LightDirection);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+}
+void setmaterial(float MatAmbient[], float MatDiffuse[], float MatSpecular[], float color[], float MatShininess) {
+	//here you set materials, you must declare each one of the colors global or locally like this:
+	glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, MatAmbient);
+	glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, MatDiffuse);
+	glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, MatSpecular);
+	glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, MatShininess);
+	glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, color);
+}
 
 void DrawOBJ() {
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	
 	glm::vec3 a;
 	glPushMatrix();
-	glTranslatef(0, 0, -100);
-	glRotatef(-90.0f, 0.0, 1.0, 0.0);
+	glTranslatef(0, -0, -10);
+	glRotatef(glutGet(GLUT_ELAPSED_TIME)*0.1, 0.0, 1.0, 0.0);
+	//glRotatef(90.0f, 0.0, 0.0, 1.0);
 
-	
 	int ind = 0;
-
-	glEnable(GL_LIGHTING);
-	glEnable(GL_LIGHT0);
+	
+	setlight();
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	
 	glBegin(GL_TRIANGLES);
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		if (i == indO[ind]) {
+			GLfloat mat_ambient[] = { colors[mtls[ind]].ambient.x, colors[mtls[ind]].ambient.y, colors[mtls[ind]].ambient.z, 1.0 };
+			GLfloat mat_diffuse[] = { colors[mtls[ind]].diffuse.x, colors[mtls[ind]].diffuse.y, colors[mtls[ind]].diffuse.z, 1.0 };
+			GLfloat mat_specular[] = { colors[mtls[ind]].specular.x, colors[mtls[ind]].specular.y, colors[mtls[ind]].specular.z, 1.0 };
+			GLfloat shininess = colors[mtls[ind]].Ns;
 
-		for (int i = 0; i < vertices.size(); i ++)
-		{
-			if (i == indO[ind]) {
-				std::cout << i << " " << ind << " " << indO[ind] << "\n";
-
-				GLfloat mat_ambient[] = { colors[mtls[ind]].ambient.x, colors[mtls[ind]].ambient.y, colors[mtls[ind]].ambient.z, 1.0 };
-				GLfloat mat_diffuse[] = { colors[mtls[ind]].diffuse.x, colors[mtls[ind]].diffuse.y, colors[mtls[ind]].diffuse.z, 1.0 };
-				GLfloat mat_specular[] = { colors[mtls[ind]].specular.x, colors[mtls[ind]].specular.y, colors[mtls[ind]].specular.z, 1.0 };
-
-				glEnable(GL_COLOR_MATERIAL);
-				glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient);
-				glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
-				glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
-				glColor3f(colors[mtls[ind]].diffuse.x, colors[mtls[ind]].diffuse.y, colors[mtls[ind]].diffuse.z);
-
-				if(ind+1 < indO.size())
-					ind++;
-			}
-
-			a = vertices[i];
-			glNormal3f(a.x, a.y, a.z);
-			glVertex3f(a.x, a.y, a.z);
+			setmaterial(mat_ambient, mat_diffuse, mat_specular, mat_diffuse, shininess);
+			
+			if(ind < indO.size()-1)
+				ind++;
 		}
+
+
+		a = vertices[i];
+		glNormal3f(a.x, a.y, a.z);
+		glVertex3f(a.x, a.y, a.z);
+		
+	}
 	glEnd();
 	glPopMatrix();
-
 	glutSwapBuffers();
 }
 
@@ -367,38 +409,9 @@ void displaySphere() {
 }
 
 
+
 void init() {
 	
-	GLfloat luzAmbiente[4] = { 0.2,0.2,0.2,1.0 };
-	GLfloat luzDifusa[4] = { 0.7,0.7,0.7,1.0 };	   // "cor" 
-	GLfloat luzEspecular[4] = { 1.0, 1.0, 1.0, 1.0 };// "brilho" 
-	GLfloat posicaoLuz[4] = { 0.0, 0.0, -50.0, 1.0 };
-
-	// Capacidade de brilho do material
-	GLfloat especularidade[4] = { 1.0,1.0,1.0,1.0 };
-	GLint especMaterial = 60;
-
-	// Especifica que a cor de fundo da janela será preta
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-	// Habilita o modelo de colorização de Gouraud
-	glShadeModel(GL_SMOOTH);
-
-	// Define a refletância do material 
-	glMaterialfv(GL_FRONT, GL_SPECULAR, especularidade);
-	// Define a concentração do brilho
-	glMateriali(GL_FRONT, GL_SHININESS, especMaterial);
-
-	// Ativa o uso da luz ambiente 
-	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luzAmbiente);
-
-	// Define os parâmetros da luz de número 0
-	glLightfv(GL_LIGHT0, GL_AMBIENT, luzAmbiente);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, luzDifusa);
-	glLightfv(GL_LIGHT0, GL_SPECULAR, luzEspecular);
-	glLightfv(GL_LIGHT0, GL_POSITION, posicaoLuz);
-
-	// Habilita a definição da cor do material a partir da cor corrente
 	glEnable(GL_COLOR_MATERIAL);
 	//Habilita o uso de iluminação
 	glEnable(GL_LIGHTING);
@@ -406,9 +419,11 @@ void init() {
 	glEnable(GL_LIGHT0);
 	// Habilita o depth-buffering
 	glEnable(GL_DEPTH_TEST);
+	// Habilita o modelo de colorização de Gouraud
+	glShadeModel(GL_SMOOTH);
 
-	loadOBJ("carro_alegorico_v8.obj");
-	loadMTL("carro_alegorico_v8.mtl");
+	loadOBJ("carro_alegorico_vt3.obj");
+	loadMTL("carro_alegorico_vt3.mtl");
 	scale3DModel(1.0);
 	angle = 45;
 }
@@ -430,7 +445,20 @@ void visualization(void)
 	glLoadIdentity();
 
 	// Especifica posição do observador e do alvo
-	gluLookAt(0, 80, 200, 0, 0, 0, 0, 1, 0);
+	gluLookAt(camera.Position[0], camera.Position[1], camera.Position[2],
+		camera.Position[0] + camera.Front[0], camera.Position[1] + camera.Front[1], camera.Position[2] + camera.Front[2],
+		camera.Up[0], camera.Up[1], camera.Up[2]);
+}
+
+
+void glutIdle() {
+	GLfloat currentFrame = glutGet(GLUT_ELAPSED_TIME);
+	deltaTime = currentFrame - lastFrame;
+	lastFrame = currentFrame;
+	Do_Movement();
+
+	visualization();
+	glutPostRedisplay();
 }
 
 // Função callback chamada quando o tamanho da janela é alterado 
@@ -448,9 +476,18 @@ void WindowReshape(GLsizei w, GLsizei h)
 	visualization();
 }
 
+void keyPressCallback(unsigned char key, int x, int y) {
+	keys[key] = true;
+}
+void keyReleaseCallback(unsigned char key, int x, int y) {
+	keys[key] = false;
+}
+
+
 // Função callback chamada para gerenciar eventos do mouse
 void mouseCallback(int button, int state, int x, int y)
 {
+	
 	if (button == GLUT_LEFT_BUTTON)
 		if (state == GLUT_DOWN) {  // Zoom-in
 			if (angle >= 10) angle -= 5;
@@ -459,6 +496,28 @@ void mouseCallback(int button, int state, int x, int y)
 		if (state == GLUT_DOWN) {  // Zoom-out
 			if (angle <= 130) angle += 5;
 		}
+
+
+	visualization();
+	glutPostRedisplay();
+}
+
+void motionCallback(int x, int y) {
+	if (firstMouse)
+	{
+		lastX = x;
+		lastY = y;
+		firstMouse = false;
+	}
+
+	GLfloat xoffset = x - lastX;
+	GLfloat yoffset = lastY - y;
+
+	lastX = x;
+	lastY = y;
+
+	camera.ProcessMouseMovement(xoffset, yoffset);
+	
 	visualization();
 	glutPostRedisplay();
 }
@@ -472,7 +531,11 @@ int main(int argc, char *argv[]) {
 	init();
 	glutDisplayFunc(DrawOBJ);
 	glutMouseFunc(mouseCallback);
+	glutKeyboardFunc(keyPressCallback);
+	glutKeyboardUpFunc(keyReleaseCallback);
 	glutReshapeFunc(WindowReshape);
+	glutIdleFunc(glutIdle);
+	glutPassiveMotionFunc(motionCallback);
 	
 	glutMainLoop();
 	
